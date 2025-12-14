@@ -441,6 +441,50 @@ async def get_tool_info(tool_name: str) -> dict[str, Any]:
             "returns": "List of blocked issues with blocker info",
             "example": "blocked()"
         },
+        "init": {
+            "name": "init",
+            "description": "Initialize beads in a directory",
+            "parameters": {
+                "prefix": "str (optional) - Custom prefix for issue IDs",
+                "workspace_root": "str (optional)"
+            },
+            "returns": "Confirmation message with database path",
+            "example": "init(prefix='my')"
+        },
+        "set_context": {
+            "name": "set_context",
+            "description": "Set the workspace root directory for all bd operations. Call this first!",
+            "parameters": {
+                "workspace_root": "str (required) - Absolute path to workspace/project root"
+            },
+            "returns": "Confirmation with resolved workspace and database path",
+            "example": "set_context('/Users/username/project')"
+        },
+        "where_am_i": {
+            "name": "where_am_i",
+            "description": "Show current workspace context and database path",
+            "parameters": {
+                "workspace_root": "str (optional)"
+            },
+            "returns": "Current workspace root, database path, and actor",
+            "example": "where_am_i()"
+        },
+        "discover_tools": {
+            "name": "discover_tools",
+            "description": "List available beads tools (names and brief descriptions only)",
+            "parameters": {},
+            "returns": "Tool catalog with names, brief descriptions, and total count",
+            "example": "discover_tools()"
+        },
+        "get_tool_info": {
+            "name": "get_tool_info",
+            "description": "Get detailed information about a specific beads tool",
+            "parameters": {
+                "tool_name": "str (required) - Name of tool to get info for"
+            },
+            "returns": "Full tool details including parameters, returns, and examples",
+            "example": "get_tool_info('ready')"
+        },
     }
     
     if tool_name not in tool_details:

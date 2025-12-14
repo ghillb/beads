@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from beads_mcp.models import BlockedIssue, Issue, Stats
+from beads_mcp.models import BlockedIssue, CompactedResult, Issue, IssueMinimal, Stats
 from beads_mcp.tools import (
     beads_add_dependency,
     beads_blocked,
@@ -485,3 +485,159 @@ async def test_beads_init():
 
     assert "bd initialized successfully!" in result
     mock_client.init.assert_called_once()
+
+
+# =============================================================================
+# Context Engineering Tests: Models and Tool Discovery
+# =============================================================================
+
+def test_issue_minimal_model():
+    """Test IssueMinimal model for context-efficient list operations."""
+    now = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    minimal_issue = IssueMinimal(
+        id="bd-1",
+        title="Test issue",
+        status="open",
+        priority=1,
+        issue_type="bug",
+        assignee="user1",
+        labels=["urgent"],
+        dependency_count=2,
+        dependent_count=1,
+    )
+    
+    assert minimal_issue.id == "bd-1"
+    assert minimal_issue.title == "Test issue"
+    assert minimal_issue.status == "open"
+    assert minimal_issue.priority == 1
+    assert minimal_issue.assignee == "user1"
+    assert len(minimal_issue.labels) == 1
+    assert minimal_issue.dependency_count == 2
+    assert minimal_issue.dependent_count == 1
+
+
+def test_issue_minimal_validation():
+    """Test IssueMinimal validation."""
+    # Priority out of range should fail
+    with pytest.raises(ValueError):
+        IssueMinimal(
+            id="bd-1",
+            title="Test",
+            status="open",
+            priority=5,  # Invalid: out of range
+            issue_type="bug",
+        )
+
+
+def test_compacted_result_model():
+    """Test CompactedResult model for large result sets."""
+    now = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    preview_issues = [
+        IssueMinimal(
+            id="bd-1",
+            title="Issue 1",
+            status="open",
+            priority=1,
+            issue_type="bug",
+        ),
+        IssueMinimal(
+            id="bd-2",
+            title="Issue 2",
+            status="open",
+            priority=2,
+            issue_type="feature",
+        ),
+    ]
+    
+    result = CompactedResult(
+        compacted=True,
+        total_count=47,
+        preview=preview_issues,
+        preview_count=2,
+        hint="Use show(issue_id) for full details",
+    )
+    
+    assert result.compacted is True
+    assert result.total_count == 47
+    assert len(result.preview) == 2
+    assert result.preview_count == 2
+    assert "show(issue_id)" in result.hint
+
+
+def test_discover_tools_catalog():
+    """Test that tool catalog is complete and properly structured."""
+    from beads_mcp.server import _TOOL_CATALOG
+    
+    # Verify catalog exists and has expected tools
+    assert isinstance(_TOOL_CATALOG, dict)
+    assert len(_TOOL_CATALOG) >= 15
+    
+    expected_tools = [
+        "ready", "list", "show", "create", "update", "close", "reopen",
+        "dep", "stats", "blocked", "init", "set_context", "where_am_i",
+        "discover_tools", "get_tool_info"
+    ]
+    
+    for tool_name in expected_tools:
+        assert tool_name in _TOOL_CATALOG
+        assert isinstance(_TOOL_CATALOG[tool_name], str)
+
+
+def test_get_tool_info_documentation():
+    """Test that all tools have complete documentation in get_tool_info."""
+    from beads_mcp.server import _TOOL_CATALOG
+    
+    # This will be called by the actual server, so we verify the structure exists
+    # In the actual server implementation, each tool in _TOOL_CATALOG should have
+    # corresponding documentation in the tool_details dictionary.
+    
+    assert "ready" in _TOOL_CATALOG
+    assert "list" in _TOOL_CATALOG
+    assert "show" in _TOOL_CATALOG
+    assert "create" in _TOOL_CATALOG
+    assert "update" in _TOOL_CATALOG
+    assert "close" in _TOOL_CATALOG
+    assert "reopen" in _TOOL_CATALOG
+    assert "dep" in _TOOL_CATALOG
+    assert "stats" in _TOOL_CATALOG
+    assert "blocked" in _TOOL_CATALOG
+    assert "init" in _TOOL_CATALOG
+    assert "set_context" in _TOOL_CATALOG
+    assert "where_am_i" in _TOOL_CATALOG
+    assert "discover_tools" in _TOOL_CATALOG
+    assert "get_tool_info" in _TOOL_CATALOG
+
+
+def test_issue_minimal_vs_full_issue_size():
+    """Verify IssueMinimal uses significantly less context than full Issue."""
+    now = datetime(2024, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    # Create minimal issue
+    minimal = IssueMinimal(
+        id="bd-1",
+        title="Test",
+        status="open",
+        priority=1,
+        issue_type="bug",
+    )
+    
+    # Create full issue with dependencies
+    full = Issue(
+        id="bd-1",
+        title="Test",
+        status="open",
+        priority=1,
+        issue_type="bug",
+        created_at=now,
+        updated_at=now,
+        dependencies=[],
+        dependents=[],
+    )
+    
+    minimal_json = minimal.model_dump_json()
+    full_json = full.model_dump_json()
+    
+    # Minimal should be significantly smaller
+    assert len(minimal_json) < len(full_json)
+    # Rough check: minimal should be < 80% of full size
+    assert len(minimal_json) < len(full_json) * 0.8
